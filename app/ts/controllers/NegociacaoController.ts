@@ -1,6 +1,8 @@
 import { Negociacoes, Negociacao } from '../models/index';
 import { MensagemView, NegociacoesView } from '../views/index';
-import { domInject } from '../helpers/decorators/index';
+import { NegociacaoService} from '../services/index';
+import { domInject, throttle } from '../helpers/decorators/index';
+import { imprime } from '../helpers/index';
 
 export class NegociacaoController {
 
@@ -15,6 +17,7 @@ export class NegociacaoController {
     private _negociacoes = new Negociacoes();
     private _negociacoesView = new NegociacoesView('#negociacoesView');
     private _mensagemView = new MensagemView('#mensagemView');
+    private _service = new NegociacaoService();
 
     constructor() {
         this._negociacoesView.update(this._negociacoes);
@@ -22,7 +25,6 @@ export class NegociacaoController {
 
     adiciona(event: Event) {
 
-        event.preventDefault();
         let data = new Date(this._inputData.val().replace(/-/g, ','));
 
         if (this.ehDiaUtil(data)) {
@@ -41,6 +43,27 @@ export class NegociacaoController {
 
         this._negociacoesView.update(this._negociacoes);
         this._mensagemView.update('Negociação adicionada com sucesso!');
+
+        imprime(negociacao, this._negociacoes);
+    }
+
+    importaDados() {
+        this._service
+            .obterNegociacoes(res => {
+                if(res.ok) return  res;
+                throw new Error(res.statusText);
+            })
+            .then(negociacoesParaImportar => { 
+                const negociacoesJaImportadas = this._negociacoes.paraArray();
+
+                negociacoesParaImportar
+                .filter(negociacao => !negociacoesJaImportadas
+                    .some(jaImportada => negociacao.ehIgual(jaImportada))
+                )
+                .forEach(negociacao => this._negociacoes.adiciona(negociacao));
+
+                this._negociacoesView.update(this._negociacoes);
+            });
     }
 
     private ehDiaUtil(data: Date) {
